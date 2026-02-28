@@ -1,0 +1,56 @@
+[project]
+name = "shadowgen-local"
+version = "0.1.0"
+description = "Local CLI pipeline for generating YouTube shadowing study packs."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+  "edge-tts>=6.1.12",
+  "openai>=1.40.0",
+  "python-dotenv>=1.0.1",
+]
+
+[project.optional-dependencies]
+asr-whisperx = [
+  "whisperx",
+  "onnxruntime==1.19.2",
+  "torch==2.6.0+cu124",
+  "torchaudio==2.6.0+cu124",
+]
+asr-whisper = [
+  "openai-whisper",
+  "torch==2.6.0+cu124",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.2.0",
+  "pytest-cov>=5.0.0",
+  "pytest-mock>=3.14.0",
+]
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu124" }]
+torchaudio = [{ index = "pytorch-cu124" }]
+
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["shadowgen"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/shadowgen",
+  "/main.py",
+  "/README.md",
+  "/PRD.md",
+  "/PRDv2.md",
+  "/test.md",
+]
