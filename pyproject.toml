@@ -3,7 +3,7 @@ name = "shadowgen-local"
 version = "0.1.0"
 description = "Local CLI pipeline for generating YouTube shadowing study packs."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11,<3.12"
 dependencies = [
   "edge-tts>=6.1.12",
   "openai>=1.40.0",
