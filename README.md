@@ -20,8 +20,8 @@
 
 ## 环境要求
 
-- Python 3.10.x（推荐）
-- Python 3.9+（最低要求）
+- Python 3.11.x（推荐）
+- Python 3.11+（最低要求）
 - `ffmpeg` / `ffprobe` 可在命令行直接调用
 - `yt-dlp` 可在命令行直接调用
 
@@ -31,11 +31,11 @@
 - OpenAI/DeepL API Key
 
 推荐说明：
-- 推荐 `Python 3.10.x`，在 AI 生态（ASR、Torch、WhisperX）中兼容性更稳。
+- 推荐 `Python 3.11.x`，在当前项目依赖组合中兼容性更稳。
 - 如果你使用 Conda，建议新建环境后再执行 `uv`：
 
 ```powershell
-conda create -n shadowgen python=3.10 -y
+conda create -n shadowgen python=3.11 -y
 conda activate shadowgen
 ```
 
@@ -146,7 +146,13 @@ DEEPL_API_KEY=your_deepl_key
 uv run python main.py --url "https://www.youtube.com/watch?v=VIDEO_ID" --target_lang zh
 ```
 
-### 2) 本地离线演示（不依赖 URL）
+### 2) 处理本地视频文件
+
+```bash
+uv run python main.py --video_path "./video_1.mp4" --target_lang zh
+```
+
+### 3) 本地离线演示（不依赖 URL）
 
 ```bash
 uv run python main.py --mock

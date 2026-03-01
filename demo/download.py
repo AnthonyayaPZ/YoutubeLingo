@@ -1,4 +1,25 @@
-﻿from __future__ import annotations
+﻿# YouTube 视频下载脚本
+#
+# 运行方式: python demo/download.py
+#
+# 输入参数说明:
+#   1. YouTube 视频 URL (必填)
+#   2. Cookie 模式选择:
+#      - 1: 使用浏览器 cookies (推荐，可避免机器人验证)
+#      - 2: 使用 cookies.txt 文件
+#      - 3: 不使用 cookies
+#   3. 若选择模式 1，需填写:
+#      - 浏览器名称: chrome/edge/firefox/brave/chromium/opera/vivaldi
+#      - 浏览器配置(可选): 如 Default、Profile1 等
+#   4. 若选择模式 2，需填写 cookies.txt 文件路径
+#
+# 示例运行:
+#   Enter YouTube video URL: https://www.youtube.com/watch?v=tx5OP6h2ph0
+#   Cookie mode: 2
+#   Browser [chrome/edge/firefox], default chrome: chrome
+#   Browser profile (optional, e.g. Default): demo\www.youtube.com_cookies.txt
+
+from __future__ import annotations
 
 import re
 import shutil
@@ -56,14 +77,27 @@ def choose_cookie_args() -> list[str]:
 def download_with_yt_dlp(url: str, output_path: Path, cookie_args: list[str]) -> None:
     if shutil.which("yt-dlp") is None:
         raise RuntimeError("yt-dlp not found in PATH.")
+    ffmpeg_path = shutil.which("ffmpeg")
+    has_ffmpeg = ffmpeg_path is not None
+
+    if has_ffmpeg:
+        # Prefer MP4 video + M4A audio for reliable merge/playback in mp4 container.
+        format_selector = "bv*[ext=mp4]+ba[ext=m4a]/bv*+ba/b[ext=mp4]/b"
+        print(f"Using ffmpeg: {ffmpeg_path}")
+    else:
+        # Without ffmpeg, yt-dlp cannot merge separate streams. Force a single-file format with audio.
+        format_selector = "b[ext=mp4]/b"
+        print("Warning: ffmpeg not found, falling back to lower-quality single-file format with audio.")
+
+    merge_args = ["--merge-output-format", "mp4"] if has_ffmpeg else []
 
     cmd = [
         "yt-dlp",
         "--no-progress",
+        "--no-playlist",
         "-f",
-        "bv*+ba/b",
-        "--merge-output-format",
-        "mp4",
+        format_selector,
+        *merge_args,
         *cookie_args,
         "-o",
         str(output_path),
