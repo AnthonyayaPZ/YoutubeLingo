@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from shadowgen.config import AppConfig
@@ -20,6 +21,11 @@ class Transcriber:
             try:
                 return self._transcribe_with_whisperx(audio_path)
             except Exception as exc:  # pragma: no cover - optional dependency path
+                if "Weights only load failed" in str(exc):
+                    logger.warning(
+                        "whisperx blocked by torch weights_only policy. "
+                        "For trusted checkpoints, set TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD=1."
+                    )
                 if backend == "whisperx":
                     raise
                 logger.warning("whisperx unavailable, fallback to whisper: %s", exc)
@@ -35,6 +41,7 @@ class Transcriber:
         return self._fallback_result(media_duration)
 
     def _transcribe_with_whisperx(self, audio_path: Path) -> TranscriptionResult:
+        self._prepare_torch_whisperx_compat()
         import whisperx  # type: ignore
 
         device = "cuda" if self._cuda_available() else "cpu"
@@ -71,6 +78,29 @@ class Transcriber:
                 words.append(WordTiming(text=wt, start=float(ws), end=float(we)))
 
         return TranscriptionResult(segments=segments, words=words, language=language)
+
+    @staticmethod
+    def _prepare_torch_whisperx_compat() -> None:
+        # PyTorch 2.6 changed torch.load default to weights_only=True.
+        # Some whisperx/pyannote checkpoints require allowlisted OmegaConf types.
+        try:
+            import torch  # type: ignore
+            from omegaconf.dictconfig import DictConfig  # type: ignore
+            from omegaconf.listconfig import ListConfig  # type: ignore
+
+            if hasattr(torch.serialization, "add_safe_globals"):
+                torch.serialization.add_safe_globals([ListConfig, DictConfig])
+        except Exception:
+            return
+
+        # Optional escape hatch when third-party checkpoints still fail.
+        if os.getenv("SHADOWGEN_TRUST_CHECKPOINTS", "").strip().lower() in (
+            "1",
+            "y",
+            "yes",
+            "true",
+        ):
+            os.environ.setdefault("TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD", "1")
 
     def _transcribe_with_whisper(self, audio_path: Path) -> TranscriptionResult:
         import whisper  # type: ignore

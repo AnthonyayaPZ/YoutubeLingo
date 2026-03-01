@@ -4,3 +4,4 @@ temp/
 output/
 .venv/
 .env
+*.mp4
