@@ -70,7 +70,7 @@ def ffmpeg_subtitles_path(path: Path) -> str:
     p = str(path.resolve()).replace("\\", "/")
     p = p.replace(":", "\\:")
     p = p.replace("'", "\\'")
-    return f"subtitles='{p}'"
+    return f"subtitles='{p}':charenc=UTF-8"
 
 
 def format_srt_timestamp(seconds: float) -> str:

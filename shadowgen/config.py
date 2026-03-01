@@ -27,6 +27,9 @@ class AppConfig:
     tts_rate: str = "+0%"
     burn_subtitles: bool = True
     mock: bool = False
+    yt_dlp_cookies_from_browser: str = ""
+    yt_dlp_cookies_browser_profile: str = ""
+    yt_dlp_cookies_file: Path | None = None
 
     def prepare_dirs(self) -> None:
         self.temp_dir.mkdir(parents=True, exist_ok=True)
@@ -54,3 +57,14 @@ class AppConfig:
     @property
     def source_audio_path(self) -> Path:
         return self.temp_dir / "source_audio.wav"
+
+    def yt_dlp_cookie_args(self) -> list[str]:
+        if self.yt_dlp_cookies_file:
+            return ["--cookies", str(self.yt_dlp_cookies_file)]
+        browser = self.yt_dlp_cookies_from_browser.strip()
+        profile = self.yt_dlp_cookies_browser_profile.strip()
+        if not browser:
+            return []
+        if profile:
+            return ["--cookies-from-browser", f"{browser}:{profile}"]
+        return ["--cookies-from-browser", browser]

@@ -16,6 +16,7 @@ from shadowgen.translator import Translator
 from shadowgen.tts import TTSSynthesizer
 from shadowgen.utils import ensure_command_exists, logger, sanitize_filename
 from shadowgen.video_engine import VideoEngine, probe_media_duration
+from shadowgen.youtube_subtitles import download_and_parse_english_subtitles
 
 
 class ShadowGenPipeline:
@@ -39,12 +40,25 @@ class ShadowGenPipeline:
             source_video = downloaded.path
             logger.info("Title: %s", title)
 
-            logger.info("Extracting source audio...")
-            self.video_engine.extract_audio(source_video, self.config.source_audio_path)
+            transcription: TranscriptionResult | None = None
+            if self.config.url and self.config.local_video_path is None and not self.config.mock:
+                logger.info("Checking YouTube English subtitles before ASR...")
+                transcription = download_and_parse_english_subtitles(
+                    url=self.config.url,
+                    temp_dir=self.config.temp_dir,
+                    timeout_sec=self.config.timeout_sec,
+                    cookie_args=self.config.yt_dlp_cookie_args(),
+                )
 
-            media_duration = probe_media_duration(source_video)
-            logger.info("Transcribing audio...")
-            transcription = self.transcriber.transcribe(self.config.source_audio_path, media_duration)
+            if transcription is None:
+                logger.info("Extracting source audio...")
+                self.video_engine.extract_audio(source_video, self.config.source_audio_path)
+
+                media_duration = probe_media_duration(source_video)
+                logger.info("Transcribing audio...")
+                transcription = self.transcriber.transcribe(self.config.source_audio_path, media_duration)
+            else:
+                logger.info("Subtitle-first path enabled, skipping ASR.")
 
             chunks = self.chunker.chunk(transcription)
             if not chunks:

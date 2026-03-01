@@ -167,12 +167,23 @@ uv run python main.py --mock
 - `--retries 3`
 - `--keep_temp`
 - `--no_burn_subtitles`
+- `OPENAI_PARALLEL_REQUESTS`（环境变量，默认 `1`；仅 OpenAI 生效，值 > 1 时同一段文本并发请求，先返回先用）
 
 ## 环境变量
 
 - `OPENAI_API_KEY`（当 translator backend 使用 openai）
 - `OPENAI_MODEL`（可选，默认 `gpt-4o-mini`）
+- `OPENAI_PARALLEL_REQUESTS`（可选，默认 `1`）
 - `DEEPL_API_KEY`（当 translator backend 使用 deepl）
+
+`OPENAI_PARALLEL_REQUESTS` 使用说明：
+- 取值 `1`：单请求模式（成本最低）
+- 取值 `>1`：并发请求同一段文本，先成功先返回（延迟更低，但 token 成本更高）
+- 建议先从 `2` 开始测试，例如：
+
+```bash
+OPENAI_PARALLEL_REQUESTS=2 uv run python main.py --url "https://www.youtube.com/watch?v=VIDEO_ID" --target_lang zh
+```
 
 ## 目录结构
 

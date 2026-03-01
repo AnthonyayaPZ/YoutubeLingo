@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
 from shadowgen.config import AppConfig
@@ -54,6 +55,21 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--mock", action="store_true", help="Run with local mock data.")
     parser.add_argument(
+        "--cookies_from_browser",
+        default=None,
+        help="Pass-through for yt-dlp --cookies-from-browser (e.g. chrome/edge/firefox).",
+    )
+    parser.add_argument(
+        "--cookies_profile",
+        default=None,
+        help="Browser profile for --cookies-from-browser (e.g. Default).",
+    )
+    parser.add_argument(
+        "--cookies_file",
+        default=None,
+        help="Path to cookies.txt for yt-dlp --cookies.",
+    )
+    parser.add_argument(
         "--log_level",
         default="INFO",
         choices=("DEBUG", "INFO", "WARNING", "ERROR"),
@@ -77,6 +93,24 @@ def main() -> int:
             local_video_path = (work_dir / local_video_path).resolve()
         else:
             local_video_path = local_video_path.resolve()
+
+    env_browser = os.getenv("YTDLP_COOKIES_FROM_BROWSER", "").strip()
+    env_profile = os.getenv("YTDLP_COOKIES_BROWSER_PROFILE", "").strip()
+    env_cookie_file = os.getenv("YTDLP_COOKIES_FILE", "").strip()
+
+    cookies_from_browser = (args.cookies_from_browser or env_browser).strip()
+    cookies_profile = (args.cookies_profile or env_profile).strip()
+    cookie_file_text = (args.cookies_file or env_cookie_file).strip()
+    cookies_file: Path | None = None
+    if cookie_file_text:
+        cookies_file = Path(cookie_file_text).expanduser()
+        if not cookies_file.is_absolute():
+            cookies_file = (work_dir / cookies_file).resolve()
+        else:
+            cookies_file = cookies_file.resolve()
+
+    if cookies_from_browser and cookies_file is not None:
+        logger.warning("Both browser cookies and cookies file configured. Using cookies file only.")
 
     selected_input_sources = [bool(args.url), bool(local_video_path), bool(args.mock)]
     if sum(selected_input_sources) != 1:
@@ -102,6 +136,9 @@ def main() -> int:
         tts_rate=args.tts_rate,
         burn_subtitles=not args.no_burn_subtitles,
         mock=args.mock,
+        yt_dlp_cookies_from_browser=cookies_from_browser,
+        yt_dlp_cookies_browser_profile=cookies_profile,
+        yt_dlp_cookies_file=cookies_file,
     )
 
     pipeline = ShadowGenPipeline(config)

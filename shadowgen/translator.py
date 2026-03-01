@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Callable
 from urllib import parse, request
 
 from shadowgen.config import AppConfig
@@ -17,6 +19,9 @@ class Translator:
         if self.config.mock or backend == "mock":
             return self._mock_translate(text)
 
+        if backend == "auto":
+            return self._translate_auto(text)
+
         if backend in ("auto", "deepl"):
             deepl_key = os.getenv("DEEPL_API_KEY")
             if deepl_key:
@@ -32,16 +37,97 @@ class Translator:
         if backend in ("auto", "openai"):
             openai_key = os.getenv("OPENAI_API_KEY")
             if openai_key:
-                return retry(
-                    operation=lambda: self._openai_translate(text, openai_key),
-                    retries=self.config.retries,
-                    base_delay=self.config.retry_base_delay,
-                    task="openai translation",
-                )
+                return self._openai_translate_with_policy(text, openai_key)
             if backend == "openai":
                 raise RuntimeError("OPENAI_API_KEY is required for translator backend `openai`.")
 
         return self._mock_translate(text)
+
+    def _translate_auto(self, text: str) -> str:
+        deepl_key = os.getenv("DEEPL_API_KEY", "").strip()
+        openai_key = os.getenv("OPENAI_API_KEY", "").strip()
+
+        providers: list[tuple[str, Callable[[], str]]] = []
+        if deepl_key:
+            providers.append(
+                (
+                    "deepl",
+                    lambda: retry(
+                        operation=lambda: self._deepl_translate(text, deepl_key),
+                        retries=self.config.retries,
+                        base_delay=self.config.retry_base_delay,
+                        task="deepl translation",
+                    ),
+                )
+            )
+        if openai_key:
+            providers.append(
+                (
+                    "openai",
+                    lambda: self._openai_translate_with_policy(text, openai_key),
+                )
+            )
+
+        if not providers:
+            return self._mock_translate(text)
+
+        if len(providers) == 1:
+            _, fn = providers[0]
+            return fn()
+
+        errors: list[str] = []
+        with ThreadPoolExecutor(max_workers=len(providers)) as executor:
+            futures = {executor.submit(fn): name for name, fn in providers}
+            for future in as_completed(futures):
+                name = futures[future]
+                try:
+                    result = future.result()
+                    if result.strip():
+                        return result
+                    errors.append(f"{name}: empty translation result")
+                except Exception as exc:  # pragma: no cover - runtime safety path
+                    errors.append(f"{name}: {exc}")
+
+        raise RuntimeError("All translation providers failed in auto mode: " + " | ".join(errors))
+
+    def _openai_translate_with_policy(self, text: str, api_key: str) -> str:
+        parallel = self._openai_parallel_requests()
+        if parallel <= 1:
+            return retry(
+                operation=lambda: self._openai_translate(text, api_key),
+                retries=self.config.retries,
+                base_delay=self.config.retry_base_delay,
+                task="openai translation",
+            )
+        return retry(
+            operation=lambda: self._openai_translate_parallel_once(text, api_key, parallel),
+            retries=self.config.retries,
+            base_delay=self.config.retry_base_delay,
+            task=f"openai parallel translation x{parallel}",
+        )
+
+    def _openai_translate_parallel_once(self, text: str, api_key: str, parallel: int) -> str:
+        errors: list[str] = []
+        with ThreadPoolExecutor(max_workers=parallel) as executor:
+            futures = [executor.submit(self._openai_translate, text, api_key) for _ in range(parallel)]
+            for future in as_completed(futures):
+                try:
+                    result = future.result()
+                    if result.strip():
+                        return result
+                    errors.append("empty translation result")
+                except Exception as exc:  # pragma: no cover - runtime safety path
+                    errors.append(str(exc))
+        raise RuntimeError("all parallel OpenAI attempts failed: " + " | ".join(errors))
+
+    @staticmethod
+    def _openai_parallel_requests() -> int:
+        raw = os.getenv("OPENAI_PARALLEL_REQUESTS", "1").strip()
+        try:
+            value = int(raw)
+        except ValueError:
+            return 1
+        return max(1, value)
 
     def _openai_translate(self, text: str, api_key: str) -> str:
         from openai import OpenAI  # type: ignore

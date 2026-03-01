@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 from pathlib import Path
 
 from shadowgen.config import AppConfig
@@ -39,28 +38,67 @@ class VideoDownloader:
 
     def _download_once(self) -> DownloadedVideo:
         output_template = str(self.config.temp_dir / "source.%(ext)s")
+        cookie_args = self.config.yt_dlp_cookie_args()
         cmd = [
             "yt-dlp",
             "--no-progress",
+            "--no-playlist",
             "--merge-output-format",
             "mp4",
             "--print",
-            "%(title)s",
-            "--output",
+            "before_dl:title:%(title)s",
+            "--print",
+            "after_move:filepath:%(filepath)s",
+            *cookie_args,
+            "--print",
+            "before_dl:filename:%(filename)s",
+            "-o",
             output_template,
             self.config.url,
         ]
         proc = run_command(cmd, timeout_sec=self.config.timeout_sec)
-        title = proc.stdout.strip().splitlines()[-1] if proc.stdout.strip() else "Untitled"
+        stdout_lines = [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+        title = "Untitled"
+        final_path: Path | None = None
+        for line in stdout_lines:
+            if line.startswith("before_dl:title:"):
+                title = line.split("before_dl:title:", 1)[1].strip() or title
+            elif line.startswith("after_move:filepath:"):
+                raw_path = line.split("after_move:filepath:", 1)[1].strip()
+                if raw_path:
+                    final_path = Path(raw_path).expanduser().resolve()
+
         title = sanitize_filename(title)
 
-        source_candidates = sorted(
-            p for p in self.config.temp_dir.glob("source.*") if p.suffix.lower() != ".part"
-        )
-        if not source_candidates:
-            raise RuntimeError("yt-dlp succeeded but no source file was found in temp directory.")
+        # Main path: use the explicit post-move filepath emitted by yt-dlp.
+        if final_path is not None and final_path.exists():
+            source_path = final_path
+        else:
+            # Fallback path: scan expected files in temp.
+            source_candidates = sorted(
+                p for p in self.config.temp_dir.glob("source.*") if p.suffix.lower() != ".part"
+            )
+            if not source_candidates:
+                temp_listing = ", ".join(p.name for p in sorted(self.config.temp_dir.glob("*")))
+                cookie_diag = "no cookies configured"
+                if "--cookies" in cookie_args:
+                    cookie_file = Path(cookie_args[-1]).expanduser()
+                    cookie_diag = (
+                        f"cookies_file={cookie_file} exists={cookie_file.exists()} "
+                        f"is_file={cookie_file.is_file()}"
+                    )
+                elif "--cookies-from-browser" in cookie_args:
+                    cookie_diag = f"cookies_from_browser={cookie_args[-1]}"
+                raise RuntimeError(
+                    "yt-dlp succeeded but no source file was found in temp directory.\n"
+                    f"temp_dir={self.config.temp_dir}\n"
+                    f"temp_files=[{temp_listing}]\n"
+                    f"cookies={cookie_diag}\n"
+                    f"yt-dlp stdout:\n{proc.stdout}\n"
+                    f"yt-dlp stderr:\n{proc.stderr}"
+                )
+            source_path = max(source_candidates, key=lambda p: p.stat().st_mtime)
 
-        source_path = max(source_candidates, key=lambda p: p.stat().st_mtime)
         final_path = self.config.source_video_path
         if source_path.resolve() != final_path.resolve():
             source_path.replace(final_path)
