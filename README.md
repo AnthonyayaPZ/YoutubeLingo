@@ -194,6 +194,8 @@ uv run python main.py --video_path "./video_1.mp4" --subtitle_path "./video_1.en
 - `OPENAI_MODEL`（可选，默认 `gpt-4o-mini`）
 - `OPENAI_PARALLEL_REQUESTS`（可选，默认 `1`）
 - `DEEPL_API_KEY`（当 translator backend 使用 deepl）
+- `SUBTITLE_FONT`（可选，硬字幕字体名；Linux 推荐 `Noto Sans CJK SC`）
+- `SUBTITLE_FONTSDIR`（可选，字体目录；如 `/usr/share/fonts`）
 
 `OPENAI_PARALLEL_REQUESTS` 使用说明：
 - 取值 `1`：单请求模式（成本最低）
@@ -202,6 +204,15 @@ uv run python main.py --video_path "./video_1.mp4" --subtitle_path "./video_1.en
 
 ```bash
 OPENAI_PARALLEL_REQUESTS=2 uv run python main.py --url "https://www.youtube.com/watch?v=VIDEO_ID" --target_lang zh
+```
+
+Linux 服务器如果出现中文字幕乱码，建议安装并指定字体：
+
+```bash
+sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
+export SUBTITLE_FONT="Noto Sans CJK SC"
+export SUBTITLE_FONTSDIR="/usr/share/fonts"
+uv run python main.py --video_path "./video_1.mp4" --subtitle_path "./video_1.en.srt" --target_lang zh
 ```
 
 ## 目录结构

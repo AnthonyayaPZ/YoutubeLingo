@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 import shutil
 import subprocess
@@ -70,7 +71,23 @@ def ffmpeg_subtitles_path(path: Path) -> str:
     p = str(path.resolve()).replace("\\", "/")
     p = p.replace(":", "\\:")
     p = p.replace("'", "\\'")
-    return f"subtitles='{p}':charenc=UTF-8"
+    parts = [f"subtitles='{p}'", "charenc=UTF-8"]
+
+    fonts_dir = os.getenv("SUBTITLE_FONTSDIR", "").strip()
+    if fonts_dir:
+        d = str(Path(fonts_dir).expanduser().resolve()).replace("\\", "/")
+        d = d.replace(":", "\\:").replace("'", "\\'")
+        parts.append(f"fontsdir='{d}'")
+
+    font_name = os.getenv("SUBTITLE_FONT", "").strip()
+    if not font_name and os.name != "nt":
+        # On Linux, prefer a common CJK-capable font if available.
+        font_name = "Noto Sans CJK SC"
+    if font_name:
+        escaped_font = font_name.replace("'", "\\'").replace(":", "\\:")
+        parts.append(f"force_style='FontName={escaped_font}'")
+
+    return ":".join(parts)
 
 
 def format_srt_timestamp(seconds: float) -> str:

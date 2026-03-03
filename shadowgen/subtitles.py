@@ -35,5 +35,4 @@ def write_srt(entries: list[SubtitleEntry], output_path: Path) -> None:
         lines.append(f"{format_srt_timestamp(entry.start)} --> {format_srt_timestamp(entry.end)}")
         lines.append(entry.text)
         lines.append("")
-    # utf-8-sig improves subtitle parser compatibility on some ffmpeg/libass builds.
-    output_path.write_text("\n".join(lines), encoding="utf-8-sig")
+    output_path.write_text("\n".join(lines), encoding="utf-8")
