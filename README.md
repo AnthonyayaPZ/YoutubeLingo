@@ -165,6 +165,16 @@ uv run python main.py --video_path "./video_1.mp4" --subtitle_path "./video_1.en
 uv run python main.py --mock
 ```
 
+### 5) 失败后断点恢复（Resume）
+
+```bash
+uv run python main.py --video_path "./video_1.mp4" --subtitle_path "./video_1.en.srt" --target_lang zh --resume --keep_temp
+```
+
+说明：
+- `--resume` 会读取 `temp/resume_state.json` 与 `temp/transcription.json`，尽量复用上次已完成的中间产物。
+- 建议与 `--keep_temp` 一起使用，避免成功后清理 `temp` 导致下次无法恢复。
+
 ## 常用参数
 
 - `--transcribe_backend auto|whisperx|whisper|mock`
@@ -175,6 +185,7 @@ uv run python main.py --mock
 - `--keep_temp`
 - `--no_burn_subtitles`
 - `--subtitle_path ./video_1.en.srt`（可选，指定后优先使用本地字幕并跳过 ASR）
+- `--resume`（可选，从上次失败位置恢复处理）
 - `OPENAI_PARALLEL_REQUESTS`（环境变量，默认 `1`；仅 OpenAI 生效，值 > 1 时同一段文本并发请求，先返回先用）
 
 ## 环境变量
@@ -205,6 +216,8 @@ OPENAI_PARALLEL_REQUESTS=2 uv run python main.py --url "https://www.youtube.com/
 │   ├── config.py
 │   ├── downloader.py
 │   ├── pipeline.py
+│   ├── resume.py
+│   ├── subtitle_input.py
 │   ├── subtitles.py
 │   ├── timeline.py
 │   ├── transcriber.py
