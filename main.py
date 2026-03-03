@@ -16,6 +16,10 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--url", help="YouTube URL to process.")
     parser.add_argument("--video_path", help="Local video file path to process.")
+    parser.add_argument(
+        "--subtitle_path",
+        help="Local subtitle file path (.srt/.vtt). If provided, ASR will be skipped.",
+    )
     parser.add_argument("--target_lang", default="zh", help="Target translation language.")
     parser.add_argument("--work_dir", default=".", help="Workspace directory.")
     parser.add_argument("--temp_dir", default="temp", help="Temporary working directory.")
@@ -87,12 +91,19 @@ def main() -> int:
     temp_dir = (work_dir / args.temp_dir).resolve()
     output_dir = (work_dir / args.output_dir).resolve()
     local_video_path: Path | None = None
+    subtitle_path: Path | None = None
     if args.video_path:
         local_video_path = Path(args.video_path).expanduser()
         if not local_video_path.is_absolute():
             local_video_path = (work_dir / local_video_path).resolve()
         else:
             local_video_path = local_video_path.resolve()
+    if args.subtitle_path:
+        subtitle_path = Path(args.subtitle_path).expanduser()
+        if not subtitle_path.is_absolute():
+            subtitle_path = (work_dir / subtitle_path).resolve()
+        else:
+            subtitle_path = subtitle_path.resolve()
 
     env_browser = os.getenv("YTDLP_COOKIES_FROM_BROWSER", "").strip()
     env_profile = os.getenv("YTDLP_COOKIES_BROWSER_PROFILE", "").strip()
@@ -117,10 +128,13 @@ def main() -> int:
         raise SystemExit(
             "Provide exactly one input source: `--url`, `--video_path`, or `--mock`."
         )
+    if subtitle_path is not None and args.mock:
+        raise SystemExit("`--subtitle_path` cannot be used with `--mock`.")
 
     config = AppConfig(
         url=args.url or "",
         local_video_path=local_video_path,
+        subtitle_path=subtitle_path,
         target_lang=args.target_lang,
         work_dir=work_dir,
         temp_dir=temp_dir,

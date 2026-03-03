@@ -152,7 +152,14 @@ uv run python main.py --url "https://www.youtube.com/watch?v=VIDEO_ID" --target_
 uv run python main.py --video_path "./video_1.mp4" --target_lang zh
 ```
 
-### 3) 本地离线演示（不依赖 URL）
+### 3) 本地视频 + 本地字幕（跳过 ASR）
+```bash
+uv run python main.py --video_path "./video_1.mp4" --subtitle_path "./video_1.en.srt" --target_lang zh
+```
+
+未提供 `--subtitle_path` 时，将沿用原逻辑自动进行语音识别（ASR）。
+
+### 4) 本地离线演示（不依赖 URL）
 
 ```bash
 uv run python main.py --mock
@@ -167,6 +174,7 @@ uv run python main.py --mock
 - `--retries 3`
 - `--keep_temp`
 - `--no_burn_subtitles`
+- `--subtitle_path ./video_1.en.srt`（可选，指定后优先使用本地字幕并跳过 ASR）
 - `OPENAI_PARALLEL_REQUESTS`（环境变量，默认 `1`；仅 OpenAI 生效，值 > 1 时同一段文本并发请求，先返回先用）
 
 ## 环境变量

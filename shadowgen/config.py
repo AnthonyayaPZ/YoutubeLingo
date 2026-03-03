@@ -8,6 +8,7 @@ from pathlib import Path
 class AppConfig:
     url: str
     local_video_path: Path | None = None
+    subtitle_path: Path | None = None
     target_lang: str = "zh"
     work_dir: Path = Path(".")
     temp_dir: Path = Path("temp")

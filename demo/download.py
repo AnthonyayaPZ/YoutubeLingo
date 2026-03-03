@@ -74,7 +74,25 @@ def choose_cookie_args() -> list[str]:
     raise RuntimeError(f"Invalid choice: {choice}")
 
 
-def download_with_yt_dlp(url: str, output_path: Path, cookie_args: list[str]) -> None:
+def find_english_subtitles(output_path: Path) -> list[Path]:
+    parent = output_path.parent
+    stem = output_path.stem
+    name = output_path.name
+
+    patterns = [
+        f"{stem}.en*.vtt",
+        f"{name}.en*.vtt",
+        f"{stem}.en*.srt",
+        f"{name}.en*.srt",
+    ]
+    found: list[Path] = []
+    for pat in patterns:
+        found.extend(parent.glob(pat))
+    unique_sorted = sorted({p.resolve() for p in found})
+    return unique_sorted
+
+
+def download_with_yt_dlp(url: str, output_path: Path, cookie_args: list[str]) -> list[Path]:
     if shutil.which("yt-dlp") is None:
         raise RuntimeError("yt-dlp not found in PATH.")
     ffmpeg_path = shutil.which("ffmpeg")
@@ -97,6 +115,12 @@ def download_with_yt_dlp(url: str, output_path: Path, cookie_args: list[str]) ->
         "--no-playlist",
         "-f",
         format_selector,
+        "--write-sub",
+        "--write-auto-sub",
+        "--sub-langs",
+        "en.*,en",
+        "--sub-format",
+        "vtt",
         *merge_args,
         *cookie_args,
         "-o",
@@ -116,6 +140,7 @@ def download_with_yt_dlp(url: str, output_path: Path, cookie_args: list[str]) ->
             f"stdout:\n{completed.stdout}\n"
             f"stderr:\n{stderr}"
         )
+    return find_english_subtitles(output_path)
 
 
 def main() -> int:
@@ -134,12 +159,18 @@ def main() -> int:
     print(f"Downloading to: {output_path}")
 
     try:
-        download_with_yt_dlp(url, output_path, cookie_args)
+        subtitle_paths = download_with_yt_dlp(url, output_path, cookie_args)
     except Exception as exc:
         print(f"Download failed: {exc}")
         return 1
 
     print(f"Done: {output_path}")
+    if subtitle_paths:
+        print("English subtitles downloaded:")
+        for sub in subtitle_paths:
+            print(f"  - {sub}")
+    else:
+        print("No downloadable English subtitles found.")
     return 0
 
 

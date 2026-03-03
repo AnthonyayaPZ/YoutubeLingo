@@ -10,6 +10,7 @@ from shadowgen.config import AppConfig
 from shadowgen.downloader import VideoDownloader
 from shadowgen.models import SemanticChunk, TranscriptionResult
 from shadowgen.subtitles import build_subtitle_entries, write_srt
+from shadowgen.subtitle_input import parse_subtitle_file
 from shadowgen.timeline import rebuild_timeline
 from shadowgen.transcriber import Transcriber
 from shadowgen.translator import Translator
@@ -42,7 +43,10 @@ class ShadowGenPipeline:
             logger.info("Title: %s", title)
 
             transcription: TranscriptionResult | None = None
-            if self.config.url and self.config.local_video_path is None and not self.config.mock:
+            if self.config.subtitle_path is not None:
+                logger.info("Using provided subtitle file: %s", self.config.subtitle_path)
+                transcription = parse_subtitle_file(self.config.subtitle_path)
+            elif self.config.url and self.config.local_video_path is None and not self.config.mock:
                 logger.info("Checking YouTube English subtitles before ASR...")
                 transcription = download_and_parse_english_subtitles(
                     url=self.config.url,

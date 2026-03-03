@@ -5,3 +5,4 @@ output/
 .venv/
 .env
 *.mp4
+*.vtt
