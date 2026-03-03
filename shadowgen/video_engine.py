@@ -5,7 +5,7 @@ from pathlib import Path
 
 from shadowgen.config import AppConfig
 from shadowgen.models import SemanticChunk
-from shadowgen.utils import ffmpeg_subtitles_path, logger, run_command
+from shadowgen.utils import create_progress, ffmpeg_subtitles_path, logger, run_command
 
 
 def probe_media_duration(path: Path) -> float:
@@ -61,10 +61,12 @@ class VideoEngine:
                 executor.submit(self._render_chunk_pair, source_video, chunk): chunk.id
                 for chunk in chunks
             }
-            for future in as_completed(futures):
-                chunk_id = futures[future]
-                rendered[chunk_id] = future.result()
-                logger.debug("Rendered chunk pair %s/%s", chunk_id, len(chunks))
+            with create_progress(total=len(chunks), desc="Rendering chunk pairs", unit="chunk") as pbar:
+                for future in as_completed(futures):
+                    chunk_id = futures[future]
+                    rendered[chunk_id] = future.result()
+                    pbar.update(1)
+                    logger.debug("Rendered chunk pair %s/%s", chunk_id, len(chunks))
 
         ordered_clips: list[Path] = []
         for chunk in sorted(chunks, key=lambda c: c.id):
@@ -154,6 +156,8 @@ class VideoEngine:
             "-y",
             "-loop",
             "1",
+            "-framerate",
+            "25",
             "-i",
             str(frame_image),
             "-i",
@@ -168,8 +172,14 @@ class VideoEngine:
             "veryfast",
             "-crf",
             "22",
+            "-af",
+            "aresample=48000",
             "-c:a",
             "aac",
+            "-ar",
+            "48000",
+            "-ac",
+            "2",
             "-shortest",
             str(freeze_clip),
         ]
@@ -204,6 +214,10 @@ class VideoEngine:
             "22",
             "-c:a",
             "aac",
+            "-ar",
+            "48000",
+            "-ac",
+            "2",
             "-movflags",
             "+faststart",
             str(output_video),

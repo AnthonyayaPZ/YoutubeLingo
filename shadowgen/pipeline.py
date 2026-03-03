@@ -14,7 +14,7 @@ from shadowgen.timeline import rebuild_timeline
 from shadowgen.transcriber import Transcriber
 from shadowgen.translator import Translator
 from shadowgen.tts import TTSSynthesizer
-from shadowgen.utils import ensure_command_exists, logger, sanitize_filename
+from shadowgen.utils import create_progress, ensure_command_exists, logger, sanitize_filename
 from shadowgen.video_engine import VideoEngine, probe_media_duration
 from shadowgen.youtube_subtitles import download_and_parse_english_subtitles
 
@@ -33,6 +33,7 @@ class ShadowGenPipeline:
         self._validate_runtime_dependencies()
         self.config.prepare_dirs()
         outputs: dict[str, str] = {}
+        succeeded = False
 
         try:
             downloaded = self.downloader.download()
@@ -94,10 +95,13 @@ class ShadowGenPipeline:
                 "srt": str(srt_path),
                 "wordlevel": str(wordlevel_path),
             }
+            succeeded = True
             return outputs
         finally:
-            if not self.config.keep_temp:
+            if succeeded and not self.config.keep_temp:
                 self._cleanup_temp()
+            elif not succeeded:
+                logger.info("Pipeline failed; preserving temp directory for debugging: %s", self.config.temp_dir)
 
     def _translate_and_tts(self, chunks: list[SemanticChunk]) -> list[SemanticChunk]:
         def process(chunk: SemanticChunk) -> SemanticChunk:
@@ -112,8 +116,10 @@ class ShadowGenPipeline:
         processed: list[SemanticChunk] = []
         with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
             futures = {executor.submit(process, chunk): chunk.id for chunk in chunks}
-            for future in as_completed(futures):
-                processed.append(future.result())
+            with create_progress(total=len(chunks), desc="Translating+TTS", unit="chunk") as pbar:
+                for future in as_completed(futures):
+                    processed.append(future.result())
+                    pbar.update(1)
 
         processed.sort(key=lambda c: c.id)
         return processed

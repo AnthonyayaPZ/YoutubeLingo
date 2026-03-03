@@ -96,3 +96,31 @@ def ensure_command_exists(name: str) -> None:
             f"Required command not found: `{name}`. "
             f"Please install it and ensure it is available in PATH."
         )
+
+
+class _NoopProgress:
+    def __init__(self, total: int = 0, desc: str = "", unit: str = "it") -> None:
+        self.total = total
+        self.desc = desc
+        self.unit = unit
+
+    def update(self, n: int = 1) -> None:
+        return None
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> "_NoopProgress":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> bool:
+        return False
+
+
+def create_progress(total: int, desc: str, unit: str = "chunk"):
+    try:
+        from tqdm.auto import tqdm  # type: ignore
+
+        return tqdm(total=total, desc=desc, unit=unit)
+    except Exception:
+        return _NoopProgress(total=total, desc=desc, unit=unit)
