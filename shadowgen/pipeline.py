@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import shutil
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError, as_completed
 from pathlib import Path
 
 from shadowgen.chunker import SemanticChunker
@@ -121,9 +121,20 @@ class ShadowGenPipeline:
         with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
             futures = {executor.submit(process, chunk): chunk.id for chunk in chunks}
             with create_progress(total=len(chunks), desc="Translating+TTS", unit="chunk") as pbar:
-                for future in as_completed(futures):
-                    processed.append(future.result())
-                    pbar.update(1)
+                try:
+                    for future in as_completed(futures, timeout=self.config.timeout_sec):
+                        processed.append(future.result())
+                        pbar.update(1)
+                except FuturesTimeoutError as exc:
+                    pending = [chunk_id for f, chunk_id in futures.items() if not f.done()]
+                    for f in futures:
+                        if not f.done():
+                            f.cancel()
+                    preview = pending[:10]
+                    raise RuntimeError(
+                        "Translating+TTS timed out waiting for workers. "
+                        f"Pending chunk ids (first 10): {preview}; total pending={len(pending)}."
+                    ) from exc
 
         processed.sort(key=lambda c: c.id)
         return processed

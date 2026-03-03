@@ -42,7 +42,8 @@ class TTSSynthesizer:
                 voice=self.config.tts_voice,
                 rate=self.config.tts_rate,
             )
-            await communicate.save(str(output_path))
+            tts_timeout = max(10.0, min(float(self.config.timeout_sec), 300.0))
+            await asyncio.wait_for(communicate.save(str(output_path)), timeout=tts_timeout)
 
         try:
             asyncio.run(_save())

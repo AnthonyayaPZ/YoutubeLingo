@@ -129,15 +129,25 @@ class Translator:
             return 1
         return max(1, value)
 
+    @staticmethod
+    def _openai_timeout_sec() -> float:
+        raw = os.getenv("OPENAI_TIMEOUT_SEC", "90").strip()
+        try:
+            value = float(raw)
+        except ValueError:
+            return 90.0
+        return max(5.0, value)
+
     def _openai_translate(self, text: str, api_key: str) -> str:
         from openai import OpenAI  # type: ignore
 
         model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
         base_url = os.getenv("OPENAI_BASE_URL", "").strip()
+        timeout_sec = self._openai_timeout_sec()
         if base_url:
-            client = OpenAI(api_key=api_key, base_url=base_url)
+            client = OpenAI(api_key=api_key, base_url=base_url, timeout=timeout_sec)
         else:
-            client = OpenAI(api_key=api_key)
+            client = OpenAI(api_key=api_key, timeout=timeout_sec)
         response = client.chat.completions.create(
             model=model,
             temperature=0,
