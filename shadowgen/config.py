@@ -28,6 +28,7 @@ class AppConfig:
     tts_rate: str = "+0%"
     burn_subtitles: bool = True
     mock: bool = False
+    resume: bool = False
     yt_dlp_cookies_from_browser: str = ""
     yt_dlp_cookies_browser_profile: str = ""
     yt_dlp_cookies_file: Path | None = None
@@ -58,6 +59,14 @@ class AppConfig:
     @property
     def source_audio_path(self) -> Path:
         return self.temp_dir / "source_audio.wav"
+
+    @property
+    def transcription_cache_path(self) -> Path:
+        return self.temp_dir / "transcription.json"
+
+    @property
+    def resume_state_path(self) -> Path:
+        return self.temp_dir / "resume_state.json"
 
     def yt_dlp_cookie_args(self) -> list[str]:
         if self.yt_dlp_cookies_file:

@@ -57,6 +57,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Disable hard subtitle burn-in.",
     )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from previous run using temp artifacts and resume state.",
+    )
     parser.add_argument("--mock", action="store_true", help="Run with local mock data.")
     parser.add_argument(
         "--cookies_from_browser",
@@ -150,6 +155,7 @@ def main() -> int:
         tts_rate=args.tts_rate,
         burn_subtitles=not args.no_burn_subtitles,
         mock=args.mock,
+        resume=args.resume,
         yt_dlp_cookies_from_browser=cookies_from_browser,
         yt_dlp_cookies_browser_profile=cookies_profile,
         yt_dlp_cookies_file=cookies_file,
